@@ -51,7 +51,7 @@ except:
     device = product
 
 if not depsonly:
-    print("Device %s not found. Attempting to retrieve device repository from CyanogenMod Github (http://github.com/CyanogenMod)." % device)
+    print("Device %s not found. Attempting to retrieve device repository from lineageos Github (http://github.com/LineageOS)." % device)
 
 repositories = []
 
@@ -71,7 +71,7 @@ def add_auth(githubreq):
         githubreq.add_header("Authorization","Basic %s" % githubauth)
 
 if not depsonly:
-    githubreq = urllib.request.Request("https://api.github.com/search/repositories?q=%s+user:CyanogenMod+in:name+fork:true" % device)
+    githubreq = urllib.request.Request("https://api.github.com/search/repositories?q=%s+user:LineageOS+in:name+fork:true" % device)
     add_auth(githubreq)
     try:
         result = json.loads(urllib.request.urlopen(githubreq).read().decode())
@@ -126,17 +126,6 @@ def get_from_manifest(devicename):
         if re.search("android_device_.*_%s$" % device, localpath.get("name")):
             return localpath.get("path")
 
-    # Devices originally from AOSP are in the main manifest...
-    try:
-        mm = ElementTree.parse(".repo/manifest.xml")
-        mm = mm.getroot()
-    except:
-        mm = ElementTree.Element("manifest")
-
-    for localpath in mm.findall("project"):
-        if re.search("android_device_.*_%s$" % device, localpath.get("name")):
-            return localpath.get("path")
-
     return None
 
 def is_in_manifest(projectpath):
@@ -150,9 +139,20 @@ def is_in_manifest(projectpath):
         if localpath.get("path") == projectpath:
             return True
 
-    ## Search in main manifest, too
+    # Search in main manifest, too
     try:
         lm = ElementTree.parse(".repo/manifest.xml")
+        lm = lm.getroot()
+    except:
+        lm = ElementTree.Element("manifest")
+
+    for localpath in lm.findall("project"):
+        if localpath.get("path") == projectpath:
+            return True
+
+    # ... and don't forget the lineage snippet
+    try:
+        lm = ElementTree.parse(".repo/manifests/snippets/cm.xml")
         lm = lm.getroot()
     except:
         lm = ElementTree.Element("manifest")
@@ -175,12 +175,12 @@ def add_to_manifest(repositories, fallback_branch = None):
         repo_target = repository['target_path']
         print('Checking if %s is fetched from %s' % (repo_target, repo_name))
         if is_in_manifest(repo_target):
-            print('CyanogenMod/%s already fetched to %s' % (repo_name, repo_target))
+            print('LineageOS/%s already fetched to %s' % (repo_name, repo_target))
             continue
 
-        print('Adding dependency: CyanogenMod/%s -> %s' % (repo_name, repo_target))
+        print('Adding dependency: LineageOS/%s -> %s' % (repo_name, repo_target))
         project = ElementTree.Element("project", attrib = { "path": repo_target,
-            "remote": "github", "name": "CyanogenMod/%s" % repo_name })
+            "remote": "github", "name": "LineageOS/%s" % repo_name })
 
         if 'branch' in repository:
             project.set('revision',repository['branch'])
@@ -202,29 +202,34 @@ def add_to_manifest(repositories, fallback_branch = None):
 
 def fetch_dependencies(repo_path, fallback_branch = None):
     print('Looking for dependencies in %s' % repo_path)
-    dependencies_path = repo_path + '/cm.dependencies'
+    dependencies_paths = [repo_path + '/lineage.dependencies', repo_path + '/cm.dependencies']
+    found_dependencies = False
     syncable_repos = []
     verify_repos = []
 
-    if os.path.exists(dependencies_path):
-        dependencies_file = open(dependencies_path, 'r')
-        dependencies = json.loads(dependencies_file.read())
-        fetch_list = []
+    for dependencies_path in dependencies_paths:
+        if os.path.exists(dependencies_path):
+            dependencies_file = open(dependencies_path, 'r')
+            dependencies = json.loads(dependencies_file.read())
+            fetch_list = []
 
-        for dependency in dependencies:
-            if not is_in_manifest(dependency['target_path']):
-                fetch_list.append(dependency)
-                syncable_repos.append(dependency['target_path'])
-                verify_repos.append(dependency['target_path'])
-            elif re.search("android_device_.*_.*$", dependency['repository']):
-                verify_repos.append(dependency['target_path'])
+            for dependency in dependencies:
+                if not is_in_manifest(dependency['target_path']):
+                    fetch_list.append(dependency)
+                    syncable_repos.append(dependency['target_path'])
+                    verify_repos.append(dependency['target_path'])
+                elif re.search("android_device_.*_.*$", dependency['repository']):
+                    verify_repos.append(dependency['target_path'])
 
-        dependencies_file.close()
+            dependencies_file.close()
+            found_dependencies = True
 
-        if len(fetch_list) > 0:
-            print('Adding dependencies to manifest')
-            add_to_manifest(fetch_list, fallback_branch)
-    else:
+            if len(fetch_list) > 0:
+                print('Adding dependencies to manifest')
+                add_to_manifest(fetch_list, fallback_branch)
+            break
+
+    if not found_dependencies:
         print('Dependencies file not found, bailing out.')
 
     if len(syncable_repos) > 0:
@@ -249,7 +254,7 @@ if depsonly:
 else:
     for repository in repositories:
         repo_name = repository['name']
-        if repo_name.startswith("android_device_") and repo_name.endswith("_" + device):
+        if re.match(r"^android_device_[^_]*_" + device + "$", repo_name):
             print("Found repository: %s" % repository['name'])
             
             manufacturer = repo_name.replace("android_device_", "").replace("_" + device, "")
@@ -298,4 +303,4 @@ else:
             print("Done")
             sys.exit()
 
-print("Repository for %s not found in the CyanogenMod Github repository list. If this is in error, you may need to manually add it to your local_manifests/roomservice.xml." % device)
+print("Repository for %s not found in the LineageOS Github repository list. If this is in error, you may need to manually add it to your local_manifests/roomservice.xml." % device)
