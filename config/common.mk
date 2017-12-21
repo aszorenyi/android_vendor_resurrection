@@ -79,17 +79,11 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     vendor/cm/Features.mkdn:system/etc/RR/Features.txt
 
-# NexusLauncher
-PRODUCT_COPY_FILES += \
-    vendor/cm/prebuilt/NexusLauncher/NexusLauncher.apk:system/app/NexusLauncher/NexusLauncher.apk
-
-# Wallpaper
-PRODUCT_COPY_FILES += \
-    vendor/cm/prebuilt/Wallpaper/Wallpaper.apk:system/app/Wallpaper/Wallpaper.apk
-
-# DeskClock
-PRODUCT_COPY_FILES += \
-    vendor/cm/prebuilt/DeskClock/DeskClock.apk:system/app/DeskClock/DeskClock.apk
+# Included prebuilt apk's
+PRODUCT_PACKAGES += \
+    DeskClock \
+    NexusLauncher \
+    Wallpaper
 
 # DU Utils Library
 PRODUCT_BOOT_JARS += \
@@ -310,7 +304,7 @@ endif
 
 DEVICE_PACKAGE_OVERLAYS += vendor/cm/overlay/common
 
-PRODUCT_VERSION = 5.8.4
+PRODUCT_VERSION = 5.8.5
 ifneq ($(RR_BUILDTYPE),)
 RR_VERSION := RR-N-v$(PRODUCT_VERSION)-$(shell date -u +%Y%m%d)-$(CM_BUILD)-$(RR_BUILDTYPE)
 else
